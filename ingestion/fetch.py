@@ -9,8 +9,16 @@ import uuid
 from typing import Generator
 
 from datasets import load_dataset
+from fastembed import SparseTextEmbedding
 from qdrant_client import QdrantClient
-from qdrant_client.models import Distance, PointStruct, VectorParams
+from qdrant_client.models import (
+    Distance,
+    PointStruct,
+    SparseIndexParams,
+    SparseVector,
+    SparseVectorParams,
+    VectorParams,
+)
 from sentence_transformers import SentenceTransformer
 
 # ── Chunking ──────────────────────────────────────────────────────────────────
@@ -41,6 +49,7 @@ def chunk_record(record: dict) -> list[dict]:
 # ── Embedding ─────────────────────────────────────────────────────────────────
 
 BGE_MODEL = "BAAI/bge-base-en-v1.5"
+SPLADE_MODEL = "prithivida/Splade_PP_en_v1"
 VECTOR_DIM = 768
 EMBED_BATCH_SIZE = 64
 
@@ -50,15 +59,25 @@ def build_embed_text(record: dict) -> str:
     return f"{record['title']}\n\n{record['text']}"
 
 
-def embed_records(records: list[dict], model: SentenceTransformer) -> list[list[float]]:
-    """Return one normalized embedding vector per record."""
+def embed_records(records: list[dict], model: SentenceTransformer) -> list:
+    """Return one L2-normalized dense embedding (numpy array) per record."""
     texts = [build_embed_text(r) for r in records]
-    return model.encode(
+    embeddings = model.encode(
         texts,
         batch_size=EMBED_BATCH_SIZE,
         normalize_embeddings=True,
         show_progress_bar=True,
-    ).tolist()
+    )
+    return list(embeddings)
+
+
+def embed_sparse_records(records: list[dict], model: SparseTextEmbedding) -> list[SparseVector]:
+    """Return one SPLADE SparseVector per record."""
+    texts = [build_embed_text(r) for r in records]
+    return [
+        SparseVector(indices=r.indices.tolist(), values=r.values.tolist())
+        for r in model.embed(texts, batch_size=EMBED_BATCH_SIZE)
+    ]
 
 
 # ── Qdrant points ─────────────────────────────────────────────────────────────
@@ -69,10 +88,14 @@ def _stable_uuid(text: str) -> str:
     return str(uuid.UUID(h[:32]))
 
 
-def build_points(records: list[dict], vectors: list[list[float]]) -> list[PointStruct]:
-    """Combine metadata payloads and embedding vectors into Qdrant PointStructs."""
+def build_points(
+    records: list[dict],
+    dense_vecs: list,
+    sparse_vecs: list[SparseVector],
+) -> list[PointStruct]:
+    """Combine metadata payloads and named embedding vectors into Qdrant PointStructs."""
     points: list[PointStruct] = []
-    for record, vector in zip(records, vectors):
+    for record, dense, sparse in zip(records, dense_vecs, sparse_vecs):
         payload = {
             "source": record["source"],
             "subsource": record["subsource"],
@@ -83,7 +106,11 @@ def build_points(records: list[dict], vectors: list[list[float]]) -> list[PointS
             "text": record["text"],
         }
         embed_text = build_embed_text(record)
-        points.append(PointStruct(id=_stable_uuid(embed_text), vector=vector, payload=payload))
+        points.append(PointStruct(
+            id=_stable_uuid(embed_text),
+            vector={"dense_vec": dense, "sparse_vec": sparse},
+            payload=payload,
+        ))
     return points
 
 
@@ -101,14 +128,19 @@ def get_client() -> QdrantClient:
 
 
 def ensure_collection(client: QdrantClient, name: str = COLLECTION_NAME) -> None:
-    if not client.collection_exists(name):
-        client.create_collection(
-            collection_name=name,
-            vectors_config=VectorParams(size=VECTOR_DIM, distance=Distance.COSINE),
-        )
-        print(f"Created collection '{name}'.")
-    else:
-        print(f"Collection '{name}' already exists.")
+    if client.collection_exists(name):
+        client.delete_collection(name)
+        print(f"Deleted existing collection '{name}'.")
+    client.create_collection(
+        collection_name=name,
+        vectors_config={
+            "dense_vec": VectorParams(size=VECTOR_DIM, distance=Distance.COSINE),
+        },
+        sparse_vectors_config={
+            "sparse_vec": SparseVectorParams(index=SparseIndexParams()),
+        },
+    )
+    print(f"Created collection '{name}'.")
 
 
 def upsert_in_batches(client: QdrantClient, points: list[PointStruct], name: str = COLLECTION_NAME) -> None:
@@ -139,15 +171,22 @@ def load_stampy() -> Generator[dict, None, None]:
 
 # ── Ingestion entry point ─────────────────────────────────────────────────────
 
-def _flush(batch: list[dict], model: SentenceTransformer, client: QdrantClient) -> int:
-    vectors = embed_records(batch, model)
-    points = build_points(batch, vectors)
+def _flush(
+    batch: list[dict],
+    dense_model: SentenceTransformer,
+    sparse_model: SparseTextEmbedding,
+    client: QdrantClient,
+) -> int:
+    dense_vecs = embed_records(batch, dense_model)
+    sparse_vecs = embed_sparse_records(batch, sparse_model)
+    points = build_points(batch, dense_vecs, sparse_vecs)
     upsert_in_batches(client, points)
     return len(points)
 
 
 def ingest() -> None:
-    model = SentenceTransformer(BGE_MODEL)
+    dense_model = SentenceTransformer(BGE_MODEL)
+    sparse_model = SparseTextEmbedding(model_name=SPLADE_MODEL)
     client = get_client()
     ensure_collection(client)
 
@@ -160,11 +199,11 @@ def ingest() -> None:
             continue
         batch.extend(chunk_record(record))
         if len(batch) >= INGEST_BATCH_SIZE:
-            total += _flush(batch, model, client)
+            total += _flush(batch, dense_model, sparse_model, client)
             batch = []
 
     if batch:
-        total += _flush(batch, model, client)
+        total += _flush(batch, dense_model, sparse_model, client)
 
     print(f"Ingestion complete. {total} points upserted.")
 
