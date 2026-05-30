@@ -36,6 +36,7 @@ def hybrid_search(query: str, top_k: int = 10) -> list[dict]:
     """
     Search with dense + sparse vectors fused via RRF.
     Returns top_k results, each a dict with 'score' plus all payload fields.
+    {"score": ..., "title": ..., "text": ...}
     """
     dense_model, sparse_model, client = _get_resources()
 

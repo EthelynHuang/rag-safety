@@ -1,0 +1,7 @@
+anthropic
+fastembed
+fastapi
+python-dotenv
+qdrant-client
+sentence-transformers
+uvicorn
