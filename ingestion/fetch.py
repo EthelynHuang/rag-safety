@@ -8,6 +8,7 @@ import os
 import uuid
 from typing import Generator
 
+from dotenv import load_dotenv
 from datasets import load_dataset
 from fastembed import SparseTextEmbedding
 from qdrant_client import QdrantClient
@@ -115,6 +116,7 @@ def build_points(
 
 
 # ── Qdrant collection & upsert ────────────────────────────────────────────────
+load_dotenv() # load env variables
 
 COLLECTION_NAME = "ai_safety"
 INGEST_BATCH_SIZE = 512  # chunks accumulated before embed + upsert

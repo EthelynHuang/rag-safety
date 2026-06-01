@@ -9,6 +9,7 @@ from fastembed import SparseTextEmbedding
 from qdrant_client import QdrantClient
 from qdrant_client.models import Fusion, Prefetch, SparseVector
 from sentence_transformers import SentenceTransformer
+from dotenv import load_dotenv; load_dotenv()
 
 BGE_MODEL = "BAAI/bge-base-en-v1.5"
 SPLADE_MODEL = "prithivida/Splade_PP_en_v1"
@@ -23,6 +24,7 @@ _client: QdrantClient | None = None
 
 def _get_resources() -> tuple[SentenceTransformer, SparseTextEmbedding, QdrantClient]:
     global _dense_model, _sparse_model, _client
+    load_dotenv()
     if _dense_model is None:
         _dense_model = SentenceTransformer(BGE_MODEL)
     if _sparse_model is None:
