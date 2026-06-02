@@ -1,18 +1,18 @@
 """
 Hybrid retrieval for the AI safety RAG pipeline.
-Dense (bge-base-en-v1.5) + sparse (SPLADE) fused with RRF via Qdrant Query API.
+Dense (bge-small-en-v1.5) + sparse (BM25) fused with RRF via Qdrant Query API.
 """
 
 import os
 
 from fastembed import SparseTextEmbedding
 from qdrant_client import QdrantClient
-from qdrant_client.models import Fusion, Prefetch, SparseVector
+from qdrant_client.models import Fusion, FusionQuery, Prefetch, SparseVector
 from sentence_transformers import SentenceTransformer
 from dotenv import load_dotenv; load_dotenv()
 
-BGE_MODEL = "BAAI/bge-base-en-v1.5"
-SPLADE_MODEL = "prithivida/Splade_PP_en_v1"
+BGE_MODEL = "BAAI/bge-small-en-v1.5"
+SPLADE_MODEL = "Qdrant/bm25"
 COLLECTION_NAME = "ai_safety"
 QDRANT_URL = os.getenv("QDRANT_URL", "http://localhost:6333")
 QDRANT_API_KEY = os.getenv("QDRANT_API_KEY")
@@ -56,7 +56,7 @@ def hybrid_search(query: str, top_k: int = 10) -> list[dict]:
             Prefetch(query=dense_vec, using="dense_vec", limit=top_k * 2),
             Prefetch(query=sparse_vec, using="sparse_vec", limit=top_k * 2),
         ],
-        query=Fusion.RRF,
+        query=FusionQuery(fusion=Fusion.RRF), 
         limit=top_k,
         with_payload=True,
     )
