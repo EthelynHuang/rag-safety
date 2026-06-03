@@ -34,9 +34,10 @@ def _get_resources() -> tuple[SentenceTransformer, SparseTextEmbedding, QdrantCl
     return _dense_model, _sparse_model, _client
 
 
-def hybrid_search(query: str, top_k: int = 10) -> list[dict]:
+def hybrid_search(query: str, top_k: int = 10, dense_only: bool = False) -> list[dict]:
     """
     Search with dense + sparse vectors fused via RRF.
+    dense_only flag is for ablation, testing hybrid vs dense-only-search approaches
     Returns top_k results, each a dict with 'score' plus all payload fields.
     {"score": ..., "title": ..., "text": ...}
     """
@@ -50,15 +51,25 @@ def hybrid_search(query: str, top_k: int = 10) -> list[dict]:
         values=sparse_result.values.tolist(),
     )
 
-    response = client.query_points(
-        collection_name=COLLECTION_NAME,
-        prefetch=[
-            Prefetch(query=dense_vec, using="dense_vec", limit=top_k * 2),
-            Prefetch(query=sparse_vec, using="sparse_vec", limit=top_k * 2),
-        ],
-        query=FusionQuery(fusion=Fusion.RRF), 
-        limit=top_k,
-        with_payload=True,
-    )
+    if dense_only:
+        response = client.query_points(
+            collection_name=COLLECTION_NAME,
+            query=dense_vec,
+            using="dense_vec",
+            limit=top_k,
+            with_payload=True,
+        )
+    
+    else:
+        response = client.query_points(
+            collection_name=COLLECTION_NAME,
+            prefetch=[
+                Prefetch(query=dense_vec, using="dense_vec", limit=top_k * 2),
+                Prefetch(query=sparse_vec, using="sparse_vec", limit=top_k * 2),
+            ],
+            query=FusionQuery(fusion=Fusion.RRF), 
+            limit=top_k,
+            with_payload=True,
+        )
 
     return [{"score": pt.score, **pt.payload} for pt in response.points]
