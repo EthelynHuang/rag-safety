@@ -1,6 +1,6 @@
 """
 Hybrid retrieval for the AI safety RAG pipeline.
-Dense (bge-small-en-v1.5) + sparse (BM25) fused with RRF via Qdrant Query API.
+Dense (bge-small-en-v1.5) + BM25 fused with RRF via Qdrant Query API.
 """
 
 import os
@@ -12,7 +12,7 @@ from sentence_transformers import SentenceTransformer
 from dotenv import load_dotenv; load_dotenv()
 
 BGE_MODEL = "BAAI/bge-small-en-v1.5"
-SPLADE_MODEL = "Qdrant/bm25"
+BM25_MODEL = "Qdrant/bm25"
 COLLECTION_NAME = "ai_safety"
 QDRANT_URL = os.getenv("QDRANT_URL", "http://localhost:6333")
 QDRANT_API_KEY = os.getenv("QDRANT_API_KEY")
@@ -28,7 +28,7 @@ def _get_resources() -> tuple[SentenceTransformer, SparseTextEmbedding, QdrantCl
     if _dense_model is None:
         _dense_model = SentenceTransformer(BGE_MODEL)
     if _sparse_model is None:
-        _sparse_model = SparseTextEmbedding(model_name=SPLADE_MODEL)
+        _sparse_model = SparseTextEmbedding(model_name=BM25_MODEL)
     if _client is None:
         _client = QdrantClient(url=QDRANT_URL, api_key=QDRANT_API_KEY)
     return _dense_model, _sparse_model, _client

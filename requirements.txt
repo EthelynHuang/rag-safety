@@ -6,3 +6,5 @@ qdrant-client
 sentence-transformers
 uvicorn
 datasets
+ragas
+langchain-anthropic

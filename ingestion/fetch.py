@@ -63,7 +63,7 @@ def chunk_record(record: dict) -> list[dict]:
 # ── Embedding ─────────────────────────────────────────────────────────────────
 
 BGE_MODEL = "BAAI/bge-small-en-v1.5"
-SPLADE_MODEL = "Qdrant/bm25"
+BM25_MODEL = "Qdrant/bm25"
 VECTOR_DIM = 384
 EMBED_BATCH_SIZE = 64
 
@@ -87,7 +87,7 @@ def embed_records(records: list[dict], model: SentenceTransformer) -> list:
 
 
 def embed_sparse_records(records: list[dict], model: SparseTextEmbedding) -> list[SparseVector]:
-    """Return one SPLADE SparseVector per record."""
+    """Return one SparseVector per record."""
     texts = [build_embed_text(r) for r in records]
     return [
         SparseVector(indices=r.indices.tolist(), values=r.values.tolist())
@@ -257,7 +257,7 @@ def ingest(sources: list[str] | None = None, reset: bool = False) -> None:
     dense_model = SentenceTransformer(BGE_MODEL, device=DEVICE)
     if DEVICE == "mps":
         dense_model.half()
-    sparse_model = SparseTextEmbedding(model_name=SPLADE_MODEL, providers=ONNX_PROVIDERS)
+    sparse_model = SparseTextEmbedding(model_name=BM25_MODEL, providers=ONNX_PROVIDERS)
     client = get_client()
     ensure_collection(client, reset=reset)
 
