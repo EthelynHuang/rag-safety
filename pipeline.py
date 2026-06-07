@@ -1,10 +1,12 @@
 from models import QueryResponse, Source
 from retrieval.search import hybrid_search
+from retrieval.rerank import rerank
 from generation.generate import generate_answer
 
 
 def answer_query(query: str, top_k: int = 10) -> QueryResponse:
     chunks = hybrid_search(query, top_k=top_k)
+    chunks = rerank(query, chunks, top_k=5)
     answer = generate_answer(query, chunks)
     sources = [
         Source(
