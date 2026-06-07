@@ -11,6 +11,7 @@ python3 ingestion/fetch.py --source lesswrong: run a single source only
 import argparse
 import hashlib
 import os
+import time
 import uuid
 import json
 from typing import Generator
@@ -34,6 +35,24 @@ from qdrant_client.models import (
     VectorParams,
 )
 from sentence_transformers import SentenceTransformer
+
+# ── Text cleaning ─────────────────────────────────────────────────────────────
+
+def strip_mathjax_css(text: str) -> str:
+    """Remove MathJax CSS blocks embedded inline by the Stampy scraper.
+    The block runs from the first .mjx- selector through the closing brace
+    of the last @font-face declaration."""
+    start = text.find('.mjx-')
+    if start == -1:
+        return text
+    last_font_face = text.rfind('@font-face')
+    if last_font_face == -1:
+        return text
+    end = text.find('}', last_font_face)
+    if end == -1:
+        return text
+    return text[:start] + text[end + 1:]
+
 
 # ── Chunking ──────────────────────────────────────────────────────────────────
 
@@ -166,7 +185,16 @@ def ensure_collection(client: QdrantClient, name: str = COLLECTION_NAME, reset: 
 def upsert_in_batches(client: QdrantClient, points: list[PointStruct], name: str = COLLECTION_NAME) -> None:
     for i in range(0, len(points), UPSERT_BATCH_SIZE):
         batch = points[i : i + UPSERT_BATCH_SIZE]
-        client.upsert(collection_name=name, points=batch, wait=False)
+        for attempt in range(5):
+            try:
+                client.upsert(collection_name=name, points=batch, wait=False)
+                break
+            except Exception as e:
+                if attempt == 4:
+                    raise
+                wait = 2 ** attempt
+                print(f"  Upsert failed ({e}), retrying in {wait}s...")
+                time.sleep(wait)
         print(f"  Upserted points {i}–{i + len(batch) - 1}")
 
 
@@ -211,7 +239,7 @@ def load_stampy(sources: list[str]) -> Generator[dict, None, None]:
                     "subsource": row.get("source", "") or source_name,
                     "title": row.get("title", "") or "",
                     "authors": row.get("authors", []) or [],
-                    "text": row.get("text", "") or "",
+                    "text": strip_mathjax_css(row.get("text", "") or ""),
                     "url": row.get("url", "") or "",
                     "date_published": row.get("date_published", "") or "",
                     "_source_name": source_name,
