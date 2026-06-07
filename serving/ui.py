@@ -1,29 +1,26 @@
-import gradio as gr
-import requests
+import sys
 import os
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-API_URL = os.getenv("API_URL", "http://127.0.0.1:8000")
+import gradio as gr
+from pipeline import answer_query
 
 
-def query_api(question: str) -> tuple[str, str]:
+def query(question: str) -> tuple[str, str]:
     if not question.strip():
         return "", ""
-    response = requests.post(f"{API_URL}/query", json={"query": question}, timeout=60)
-    response.raise_for_status()
-    data = response.json()
 
-    answer = data.get("answer", "")
+    response = answer_query(question)
 
-    sources = data.get("sources", [])
-    sources_text = ""
-    for i, s in enumerate(sources, 1):
-        title = s.get("title") or "Untitled"
-        url = s.get("url") or ""
-        authors = s.get("authors") or []
+    sources_md = ""
+    for i, s in enumerate(response.sources, 1):
+        title = s.title or "Untitled"
+        authors = s.authors or []
         author_str = ", ".join(authors) if authors else "Unknown"
-        sources_text += f"{i}. {title}\n   Authors: {author_str}\n   URL: {url}\n\n"
+        link = f"[{title}]({s.url})" if s.url else title
+        sources_md += f"{i}. {link}  \n   Authors: {author_str}\n\n"
 
-    return answer, sources_text.strip()
+    return response.answer, sources_md.strip()
 
 
 with gr.Blocks(title="AI Safety RAG") as demo:
@@ -31,10 +28,10 @@ with gr.Blocks(title="AI Safety RAG") as demo:
     question = gr.Textbox(label="Question", placeholder="Ask about AI safety or alignment...", lines=2)
     submit = gr.Button("Submit", variant="primary")
     answer_out = gr.Textbox(label="Answer", lines=8, interactive=False)
-    sources_out = gr.Textbox(label="Sources", lines=8, interactive=False)
+    sources_out = gr.Markdown(label="Sources")
 
-    submit.click(fn=query_api, inputs=question, outputs=[answer_out, sources_out])
-    question.submit(fn=query_api, inputs=question, outputs=[answer_out, sources_out])
+    submit.click(fn=query, inputs=question, outputs=[answer_out, sources_out])
+    question.submit(fn=query, inputs=question, outputs=[answer_out, sources_out])
 
 if __name__ == "__main__":
     demo.launch()
