@@ -23,6 +23,7 @@ from ragas.metrics import context_precision, faithfulness
 from ragas.run_config import RunConfig
 
 from retrieval.search import hybrid_search
+from retrieval.rerank import rerank
 from generation.generate import generate_answer
 from eval.questions import questions as EVAL_QUESTIONS
 
@@ -43,6 +44,8 @@ def main():
         print(f"[{i}/{len(EVAL_QUESTIONS)}] {question}")
 
         chunks = hybrid_search(question, top_k=10, dense_only=args.dense_only)
+        if not args.dense_only:
+            chunks = rerank(question, chunks, top_k=5)
         answer = generate_answer(question, chunks)
         contexts = [c["text"] for c in chunks if "text" in c]
 
@@ -75,7 +78,7 @@ def main():
         print(f"{metric}: {np.mean(vals):.3f} (n={len(vals)})")
 
     df = result.to_pandas()
-    fname = "results_dense.csv" if args.dense_only else "results_hybrid.csv"
+    fname = "results_dense.csv" if args.dense_only else "results_hybrid_reranked.csv"
     out_path = os.path.join(os.path.dirname(__file__), fname)
     df.to_csv(out_path, index=False)
     print(f"\nPer-question results saved to {out_path}")
