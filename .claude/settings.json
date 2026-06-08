@@ -1,8 +1,0 @@
-{
-  "denyTools": [
-    {
-      "tool": "Read",
-      "pattern": "**/.env*"
-    }
-  ]
-}

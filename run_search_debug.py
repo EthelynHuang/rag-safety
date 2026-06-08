@@ -1,4 +1,4 @@
-# Temporary debug file to figure out improving context retrieval
+# debug file to figure out improving context retrieval; prints chunks retrieved for given query
 
 import sys
 import os

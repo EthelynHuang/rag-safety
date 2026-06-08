@@ -8,3 +8,4 @@ uvicorn
 datasets
 ragas
 langchain-anthropic
+gradio

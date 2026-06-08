@@ -217,7 +217,7 @@ def save_checkpoint(completed: set[str]) -> None:
 
 
 # ── Stampy data source ────────────────────────────────────────────────────────
-STAMPY_SOURCES = ["lesswrong", "alignmentforum"]  # add "arxiv", "eaforum", etc.
+STAMPY_SOURCES = ["lesswrong", "alignmentforum", "arxiv"] 
 
 
 def load_stampy(sources: list[str]) -> Generator[dict, None, None]:
