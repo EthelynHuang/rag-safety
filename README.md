@@ -9,7 +9,7 @@ pinned: false
 
 # AI Safety RAG
 
-A retrieval-augmented generation (RAG) system for AI safety and alignment research. Ask any question about AI alignment — the system retrieves the most relevant passages from **5,823 papers and posts** across LessWrong and the Alignment Forum, then generates a grounded, cited answer using Claude.
+A retrieval-augmented generation (RAG) system for AI safety and alignment research. In response to a (relevant) user query, the system retrieves the most relevant passages from **5,823 papers and posts** across LessWrong and the Alignment Forum, then generates a grounded, cited answer using Claude.
 
 ## What It Does
 
