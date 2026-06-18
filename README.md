@@ -1,15 +1,6 @@
----
-title: AI Safety RAG
-emoji: 🔍
-colorFrom: blue
-colorTo: green
-sdk: docker
-pinned: false
----
-
 # AI Safety RAG
 
-A retrieval-augmented generation (RAG) system for AI safety and alignment research. In response to a (relevant) user query, the system retrieves the most relevant passages from **5,823 papers and posts** across LessWrong and the Alignment Forum, then generates a grounded, cited answer using Claude.
+A retrieval-augmented generation (RAG) system for AI safety and alignment research. In response to a (relevant) user query, the system retrieves the most relevant passages from **7683 papers and posts** across LessWrong and the Alignment Forum, then generates a grounded, cited answer using Claude.
 
 ## What It Does
 
@@ -19,7 +10,7 @@ Type a question like *"What is Goodhart's Law and why does it matter for AI alig
 2. Reranks them with a cross-encoder to surface the most relevant context
 3. Generates a concise answer using Claude, with inline citations tied to source documents
 
-Every claim in the answer links back to the original paper or post.
+Every claim in the answer links back to the original paper or post with sources.
 
 ## Architecture
 
